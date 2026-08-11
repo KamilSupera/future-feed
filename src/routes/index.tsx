@@ -1,20 +1,23 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
-import { useQuery } from "@tanstack/react-query";
-import { useEffect, useState } from "react";
-import { getWorldNews } from "@/lib/news.functions";
+import { useInfiniteQuery } from "@tanstack/react-query";
+import { useEffect, useRef, useState } from "react";
+import { CATEGORIES, getWorldNews, type NewsArticle } from "@/lib/news.functions";
 import { ThemeSwitcher } from "@/components/ThemeSwitcher";
 
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
-      { title: "ORBITAL FEED — Live World News Terminal" },
+      { title: "SARENIT FEED — Live World News Terminal" },
       {
         name: "description",
         content:
           "A sci-fi news terminal streaming the newest world headlines by category, source and region in real time.",
       },
-      { property: "og:title", content: "ORBITAL FEED — Live World News Terminal" },
+      {
+        property: "og:title",
+        content: "SARENIT FEED — Live World News Terminal",
+      },
       {
         property: "og:description",
         content: "Live global headlines rendered as a futuristic mission-control terminal.",
@@ -24,50 +27,99 @@ export const Route = createFileRoute("/")({
   component: NewsTerminal,
 });
 
-const CATEGORIES = [
-  "all",
-  "world",
-  "technology",
-  "science",
-  "business",
-  "politics",
-  "environment",
-  "health",
-] as const;
+const ZONES = [
+  { label: "LDN", tz: "Europe/London" },
+  { label: "BER", tz: "Europe/Berlin" },
+  { label: "BRU", tz: "Europe/Brussels" },
+  { label: "DC", tz: "America/New_York" },
+  { label: "OTT", tz: "America/Toronto" },
+  { label: "MEX", tz: "America/Mexico_City" },
+].map((z) => ({
+  ...z,
+  fmt: new Intl.DateTimeFormat("en-GB", {
+    timeZone: z.tz,
+    hour12: false,
+    hour: "2-digit",
+    minute: "2-digit",
+  }),
+}));
 
-function useClock() {
-  const [now, setNow] = useState<string>("--:--:--");
+function Clocks() {
+  const [now, setNow] = useState<Date | null>(null);
   useEffect(() => {
-    const tick = () => setNow(new Date().toISOString().slice(11, 19));
+    const tick = () => setNow(new Date());
     tick();
     const id = setInterval(tick, 1000);
     return () => clearInterval(id);
   }, []);
-  return now;
+
+  return (
+    <>
+      <div className="text-right">
+        <div className="text-primary/50">UTC_TIME</div>
+        <div className="text-lg font-bold tabular-nums">
+          {now ? now.toISOString().slice(11, 19) : "--:--:--"}
+        </div>
+      </div>
+
+      <div className="hidden grid-cols-3 gap-x-4 gap-y-0.5 border-l border-primary/20 pl-4 text-[10px] lg:grid">
+        {ZONES.map((z) => (
+          <div key={z.label} className="flex items-baseline justify-between gap-2">
+            <span className="text-primary/50">{z.label}</span>
+            <span className="font-bold tabular-nums">{now ? z.fmt.format(now) : "--:--"}</span>
+          </div>
+        ))}
+      </div>
+    </>
+  );
 }
 
 function NewsTerminal() {
   const [category, setCategory] = useState<string>("all");
   const fetchNews = useServerFn(getWorldNews);
-  const clock = useClock();
 
-  const { data, isFetching, refetch } = useQuery({
-    queryKey: ["news", category],
-    queryFn: () => fetchNews({ data: { category } }),
-    refetchInterval: 120_000,
+  const { data, isFetching, isFetchingNextPage, isError, hasNextPage, fetchNextPage, refetch } =
+    useInfiniteQuery({
+      queryKey: ["news", category],
+      queryFn: ({ pageParam }) => fetchNews({ data: { category, page: pageParam } }),
+      initialPageParam: undefined as string | undefined,
+      getNextPageParam: (last, _pages, lastParam) =>
+        last.nextPage && last.nextPage !== lastParam ? last.nextPage : undefined,
+      refetchInterval: 3_600_000,
+      retry: (failureCount, error) => {
+        const status =
+          error instanceof Response ? error.status : (error as { status?: number }).status;
+        return status === 429 ? false : failureCount < 1;
+      },
+    });
+
+  const seen = new Set<string>();
+  const articles = (data?.pages.flatMap((p) => p.articles) ?? []).filter((a: NewsArticle) => {
+    if (seen.has(a.id)) return false;
+    seen.add(a.id);
+    return true;
   });
-
-  const articles = data?.articles ?? [];
+  const feedError = data?.pages.find((p) => p.error)?.error ?? (isError ? "TRANSPORT" : null);
   const [lead, ...rest] = articles;
+
+  const sentinel = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const node = sentinel.current;
+    if (!node || !hasNextPage) return;
+    const io = new IntersectionObserver(([e]) => e?.isIntersecting && fetchNextPage(), {
+      rootMargin: "600px",
+    });
+    io.observe(node);
+    return () => io.disconnect();
+  }, [hasNextPage, fetchNextPage]);
 
   return (
     <main className="flex min-h-screen w-full items-start justify-center bg-background p-4 text-primary md:p-8">
-      <div className="scanlines relative w-full max-w-7xl overflow-hidden border border-border bg-background shadow-[var(--glow-primary)]">
-        {/* Header */}
+      <div className="scanlines relative w-full max-w-[1800px] overflow-hidden border border-border bg-background shadow-[var(--glow-primary)]">
         <header className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-4 border-b border-primary/30 bg-card p-4 md:flex md:flex-wrap md:justify-between">
           <div className="flex min-w-0 items-center gap-6">
             <h1 className="truncate font-display text-3xl tracking-tighter text-primary text-glow md:text-4xl">
-              ORBITAL//FEED
+              SARENIT//FEED
             </h1>
             <div className="hidden items-center gap-2 border border-primary/40 bg-primary/5 px-3 py-1 text-[10px] font-bold tracking-[0.2em] sm:flex">
               <span className="relative flex size-2">
@@ -83,10 +135,7 @@ function NewsTerminal() {
               <div className="text-primary/50">SYNC_NODE</div>
               <div className="text-primary">RELAY_NEWSDATA</div>
             </div>
-            <div className="text-right">
-              <div className="text-primary/50">UTC_TIME</div>
-              <div className="text-lg font-bold tabular-nums">{clock}</div>
-            </div>
+            <Clocks />
             <button
               onClick={() => refetch()}
               className="cursor-crosshair border border-transparent bg-primary px-4 py-2 font-bold uppercase tracking-widest text-primary-foreground transition-colors hover:bg-foreground active:scale-95"
@@ -97,7 +146,6 @@ function NewsTerminal() {
           </div>
         </header>
 
-        {/* Ticker */}
         <div className="overflow-hidden whitespace-nowrap border-b border-primary/20 bg-primary/5 py-1.5">
           <div className="inline-block animate-ticker text-[10px] font-bold uppercase tracking-[0.3em] text-primary/80">
             {articles.length === 0
@@ -109,7 +157,6 @@ function NewsTerminal() {
           </div>
         </div>
 
-        {/* Categories */}
         <nav className="flex flex-wrap gap-2 border-b border-primary/10 bg-background p-4">
           {CATEGORIES.map((c) => (
             <button
@@ -129,7 +176,7 @@ function NewsTerminal() {
           </span>
         </nav>
 
-        {data?.error === "NO_KEY" && (
+        {feedError === "NO_KEY" && (
           <section className="m-4 border border-accent/40 bg-card p-6">
             <h2 className="font-display text-2xl tracking-wide text-accent">UPLINK KEY REQUIRED</h2>
             <p className="mt-2 max-w-2xl text-sm text-primary/70">
@@ -139,18 +186,26 @@ function NewsTerminal() {
           </section>
         )}
 
-        {data?.error && data.error !== "NO_KEY" && (
-          <section className="m-4 border border-destructive/50 bg-card p-6">
-            <h2 className="font-display text-2xl tracking-wide text-destructive">RELAY ERROR</h2>
-            <p className="mt-2 font-mono text-sm text-primary/60">{data.error}</p>
+        {feedError === "QUOTA" && (
+          <section className="m-4 border border-accent/40 bg-card p-6">
+            <h2 className="font-display text-2xl tracking-wide text-accent">RELAY RATIONED</h2>
+            <p className="mt-2 max-w-2xl text-sm text-primary/70">
+              Daily uplink allowance spent. Feed resumes at 00:00 UTC.
+            </p>
           </section>
         )}
 
-        {/* Bento grid */}
+        {feedError && feedError !== "NO_KEY" && feedError !== "QUOTA" && (
+          <section className="m-4 border border-destructive/50 bg-card p-6">
+            <h2 className="font-display text-2xl tracking-wide text-destructive">RELAY ERROR</h2>
+            <p className="mt-2 font-mono text-sm text-primary/60">{feedError}</p>
+          </section>
+        )}
+
         <div className="grid grid-cols-1 gap-4 p-4 md:grid-cols-4">
           {isFetching &&
             articles.length === 0 &&
-            !data?.error &&
+            !feedError &&
             Array.from({ length: 6 }).map((_, i) => (
               <div
                 key={i}
@@ -169,6 +224,8 @@ function NewsTerminal() {
                     src={lead.image}
                     alt={lead.title}
                     loading="lazy"
+
+                    onError={(e) => e.currentTarget.classList.add("hidden")}
                     className="size-full object-cover opacity-60 grayscale transition-all duration-1000 group-hover:opacity-100 group-hover:grayscale-0"
                   />
                 ) : (
@@ -232,6 +289,8 @@ function NewsTerminal() {
                       src={a.image}
                       alt={a.title}
                       loading="lazy"
+
+                      onError={(e) => e.currentTarget.classList.add("hidden")}
                       className="size-full object-cover opacity-50 grayscale transition-all group-hover:scale-105 group-hover:opacity-100 group-hover:grayscale-0"
                     />
                   </div>
@@ -297,6 +356,8 @@ function NewsTerminal() {
                       src={a.image}
                       alt={a.title}
                       loading="lazy"
+
+                      onError={(e) => e.currentTarget.classList.add("hidden")}
                       className="size-20 shrink-0 object-cover opacity-40 grayscale transition-all group-hover:opacity-100 group-hover:grayscale-0"
                     />
                   )}
@@ -344,7 +405,19 @@ function NewsTerminal() {
           })}
         </div>
 
-        {/* Footer */}
+        {articles.length > 0 && (
+          <div
+            ref={sentinel}
+            className="border-t border-primary/10 p-6 text-center font-mono text-[10px] uppercase tracking-[0.3em] text-primary/50"
+          >
+            {isFetchingNextPage
+              ? "PULLING NEXT PACKET…"
+              : hasNextPage
+                ? "SCROLL FOR MORE SIGNAL"
+                : "END OF TRANSMISSION"}
+          </div>
+        )}
+
         <footer className="flex flex-wrap items-center justify-between gap-3 border-t border-primary/20 bg-card p-4 font-mono text-[9px]">
           <div className="flex items-center gap-4">
             <span className="text-primary/40">ENCRYPTION: AES-256-GCM</span>

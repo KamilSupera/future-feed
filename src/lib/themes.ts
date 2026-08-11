@@ -9,4 +9,4 @@ export const THEMES: { id: ThemeId; label: string; swatch: string[] }[] = [
 ];
 
 export const DEFAULT_THEME: ThemeId = "ion";
-export const THEME_STORAGE_KEY = "orbital-theme";
+export const THEME_STORAGE_KEY = "sarenit-theme";

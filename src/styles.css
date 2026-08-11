@@ -2,21 +2,19 @@
 @source "../src";
 @import "tw-animate-css";
 
-@custom-variant dark (&:is(.dark *));
+@import "@fontsource/orbitron/400.css";
+@import "@fontsource/orbitron/600.css";
+@import "@fontsource/orbitron/700.css";
+@import "@fontsource/orbitron/900.css";
+@import "@fontsource/rajdhani/400.css";
+@import "@fontsource/rajdhani/500.css";
+@import "@fontsource/rajdhani/600.css";
+@import "@fontsource/rajdhani/700.css";
+@import "@fontsource/jetbrains-mono/400.css";
+@import "@fontsource/jetbrains-mono/500.css";
+@import "@fontsource/jetbrains-mono/700.css";
 
-/*
- * Design system definition.
- *
- * The @theme inline block maps CSS custom properties to Tailwind utility
- * classes (e.g. --color-primary -> bg-primary, text-primary).
- *
- * The :root and .dark blocks define the actual color values using oklch.
- * All colors MUST use oklch format.
- *
- * To add a new semantic color:
- * 1. Add the variable to :root (light value) and .dark (dark value)
- * 2. Register it in @theme inline as --color-<name>: var(--<name>)
- */
+@custom-variant dark (&:is(.dark *));
 
 @theme inline {
   --font-display: "Orbitron", ui-sans-serif, system-ui, sans-serif;
@@ -69,18 +67,12 @@
 
 :root {
   --radius: 0rem;
-  /* base surfaces/accents come from the active theme block below */
   --destructive: oklch(0.65 0.23 26);
   --destructive-foreground: oklch(0.97 0.01 250);
   --chart-4: oklch(0.65 0.23 26);
   --chart-5: oklch(0.9 0 0);
 }
 
-/*
- * Sci-fi palettes. Each block sets three seeds (deep bg, primary signal,
- * accent) and derives every semantic token from them, so adding a theme
- * means adding one block plus an entry in THEMES in src/lib/themes.ts.
- */
 :root,
 [data-theme="ion"] {
   --bg-seed: oklch(0.13 0.03 250);
@@ -250,7 +242,17 @@
 }
 
 @utility animate-ticker {
-  animation: ticker 35s linear infinite;
+  animation: ticker 480s linear infinite;
+}
+
+.animate-ticker:hover {
+  animation-play-state: paused;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-ticker {
+    animation: none;
+  }
 }
 
 @keyframes pulse-dot {
