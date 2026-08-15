@@ -37,7 +37,14 @@ export default defineConfig(({ command }) => ({
         client: { files: ["**/server/**"], specifiers: ["server-only"] },
       },
     }),
-    ...(command === "build" ? [nitro({ preset: "cloudflare-module" })] : []),
+    ...(command === "build"
+      ? [
+          nitro({
+            preset: process.env["NITRO_PRESET"] ?? "cloudflare-module",
+            serveStatic: process.env["NITRO_PRESET"] === "aws-lambda",
+          }),
+        ]
+      : []),
     viteReact(),
   ],
 }));
