@@ -245,12 +245,24 @@
   animation: ticker 480s linear infinite;
 }
 
-.animate-ticker:hover {
+.animate-ticker:hover,
+.animate-ticker:focus-visible {
   animation-play-state: paused;
 }
 
 @media (prefers-reduced-motion: reduce) {
   .animate-ticker {
+    animation: none;
+    transform: none;
+    display: block;
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .animate-ping,
+  .animate-pulse,
+  .animate-pulse-dot {
     animation: none;
   }
 }

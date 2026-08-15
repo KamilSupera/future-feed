@@ -1,9 +1,10 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { DEFAULT_THEME, THEMES, THEME_STORAGE_KEY, type ThemeId } from "@/lib/themes";
 
 export function ThemeSwitcher() {
   const [theme, setTheme] = useState<ThemeId>(DEFAULT_THEME);
   const [open, setOpen] = useState(false);
+  const root = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const stored = localStorage.getItem(THEME_STORAGE_KEY) as ThemeId | null;
@@ -14,6 +15,22 @@ export function ThemeSwitcher() {
     document.documentElement.setAttribute("data-theme", theme);
   }, [theme]);
 
+  useEffect(() => {
+    if (!open) return;
+    const onPointerDown = (e: PointerEvent) => {
+      if (!root.current?.contains(e.target as Node)) setOpen(false);
+    };
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setOpen(false);
+    };
+    document.addEventListener("pointerdown", onPointerDown);
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.removeEventListener("pointerdown", onPointerDown);
+      document.removeEventListener("keydown", onKeyDown);
+    };
+  }, [open]);
+
   const active = THEMES.find((t) => t.id === theme) ?? THEMES[0]!;
 
   const pick = (id: ThemeId) => {
@@ -23,10 +40,11 @@ export function ThemeSwitcher() {
   };
 
   return (
-    <div className="relative">
+    <div ref={root} className="relative">
       <button
         onClick={() => setOpen((o) => !o)}
         aria-label="Change color palette"
+        aria-haspopup="menu"
         aria-expanded={open}
         className="flex items-center gap-2 border border-primary/40 bg-primary/5 px-3 py-2 font-mono text-[10px] font-bold uppercase tracking-widest text-primary transition-colors hover:bg-primary/15"
       >
@@ -43,13 +61,18 @@ export function ThemeSwitcher() {
       </button>
 
       {open && (
-        <div className="absolute right-0 z-50 mt-1 w-56 border border-primary/40 bg-card p-1 shadow-[var(--glow-primary)]">
-          <div className="px-2 py-1 font-mono text-[9px] uppercase tracking-widest text-primary/50">
+        <div
+          role="menu"
+          className="absolute right-0 z-50 mt-1 w-56 border border-primary/40 bg-card p-1 shadow-[var(--glow-primary)]"
+        >
+          <div className="px-2 py-1 font-mono text-[9px] uppercase tracking-widest text-primary/70">
             PALETTE_BANK
           </div>
           {THEMES.map((t) => (
             <button
               key={t.id}
+              role="menuitemradio"
+              aria-checked={t.id === theme}
               onClick={() => pick(t.id)}
               className={`flex w-full items-center gap-2 px-2 py-2 font-mono text-[10px] font-bold uppercase tracking-widest transition-colors ${
                 t.id === theme
