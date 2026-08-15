@@ -3,7 +3,8 @@ set -euo pipefail
 
 FUNCTION=${FUNCTION:-future-feed}
 ROLE=${ROLE:-future-feed-lambda}
-REGION=${REGION:-$(aws configure get region)}
+REGION=${REGION:-${AWS_REGION:-$(aws configure get region || true)}}
+: "${REGION:?set REGION or AWS_REGION}"
 RUNTIME=nodejs22.x
 ARCH=arm64
 MEMORY=512
@@ -12,10 +13,15 @@ LOG_RETENTION_DAYS=7
 
 cd "$(dirname "$0")/.."
 
+# CI deploys without the key so it never has to live in a GitHub secret; the
+# value already set on the function is left alone in that case.
 if [[ -z "${NEWSDATA_API_KEY:-}" && -f .env ]]; then
   set -a && . ./.env && set +a
 fi
-: "${NEWSDATA_API_KEY:?set NEWSDATA_API_KEY or put it in .env}"
+ENV_ARG=()
+if [[ -n "${NEWSDATA_API_KEY:-}" ]]; then
+  ENV_ARG=(--environment "Variables={NEWSDATA_API_KEY=$NEWSDATA_API_KEY}")
+fi
 
 echo "==> build"
 rm -rf .output
@@ -47,13 +53,12 @@ if aws lambda get-function --function-name "$FUNCTION" --region "$REGION" >/dev/
     --zip-file "fileb://$ZIP" >/dev/null
   aws lambda wait function-updated --function-name "$FUNCTION" --region "$REGION"
   aws lambda update-function-configuration --function-name "$FUNCTION" --region "$REGION" \
-    --memory-size "$MEMORY" --timeout "$TIMEOUT" \
-    --environment "Variables={NEWSDATA_API_KEY=$NEWSDATA_API_KEY}" >/dev/null
+    --memory-size "$MEMORY" --timeout "$TIMEOUT" "${ENV_ARG[@]}" >/dev/null
 else
+  : "${NEWSDATA_API_KEY:?first deploy needs NEWSDATA_API_KEY in the environment or .env}"
   aws lambda create-function --function-name "$FUNCTION" --region "$REGION" \
     --runtime "$RUNTIME" --architectures "$ARCH" --handler server/index.handler \
-    --role "$ROLE_ARN" --memory-size "$MEMORY" --timeout "$TIMEOUT" \
-    --environment "Variables={NEWSDATA_API_KEY=$NEWSDATA_API_KEY}" \
+    --role "$ROLE_ARN" --memory-size "$MEMORY" --timeout "$TIMEOUT" "${ENV_ARG[@]}" \
     --zip-file "fileb://$ZIP" >/dev/null
 fi
 aws lambda wait function-updated --function-name "$FUNCTION" --region "$REGION"

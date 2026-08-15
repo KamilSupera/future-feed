@@ -75,6 +75,14 @@ Everything sits inside perpetual free tiers: Lambda's 1M requests and 400k GB-se
 
 To build for Cloudflare instead, leave `NITRO_PRESET` unset — `cloudflare-module` is still the default.
 
+### Deploying from CI
+
+`.github/workflows/deploy.yml` runs the same script on every push to `develop`, and on demand via _Actions → Deploy → Run workflow_. It authenticates with GitHub OIDC, so this repository holds no AWS keys — only a `AWS_DEPLOY_ROLE` variable naming the role to assume. The role can touch the `future-feed` function, its CloudFront distribution and its log group, and can pass exactly one execution role; it cannot create IAM roles, which keeps a compromised workflow from escalating.
+
+The workflow never receives `NEWSDATA_API_KEY`. The key is set once on the function — by the first local deploy, or by hand in the console — and CI leaves it in place. A first-time deploy into an empty account has to run locally, since only that path creates the Lambda execution role.
+
+After shipping, the job polls the CloudFront URL until it answers 200 and fails the run if it never does.
+
 ## Security posture
 
 - The API key never reaches the browser. All upstream calls happen in a server function.

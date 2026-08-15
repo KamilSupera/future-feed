@@ -1,0 +1,60 @@
+name: Deploy
+
+on:
+  push:
+    branches: [develop]
+  workflow_dispatch:
+
+# OIDC only: the job exchanges a short-lived GitHub token for AWS credentials,
+# so no long-lived key is stored in this repository.
+permissions:
+  id-token: write
+  contents: read
+
+concurrency:
+  group: deploy-aws
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: production
+      url: ${{ steps.ship.outputs.url }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
+      - run: bun install --frozen-lockfile
+
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.AWS_DEPLOY_ROLE }}
+          aws-region: eu-central-1
+
+      # NEWSDATA_API_KEY is deliberately absent: the deploy script leaves the
+      # value already configured on the function untouched.
+      - id: ship
+        run: |
+          set -o pipefail
+          ./scripts/deploy-aws.sh | tee deploy.log
+          echo "url=$(grep -oE 'https://\S+' deploy.log | tail -1)" >> "$GITHUB_OUTPUT"
+
+      - name: smoke test
+        run: |
+          URL="${{ steps.ship.outputs.url }}"
+          for i in $(seq 1 10); do
+            CODE=$(curl -sS -o /dev/null -w '%{http_code}' "$URL?cb=$i" || true)
+            echo "attempt $i: $CODE"
+            [ "$CODE" = "200" ] && exit 0
+            sleep 15
+          done
+          echo "deployment did not answer 200"
+          exit 1
