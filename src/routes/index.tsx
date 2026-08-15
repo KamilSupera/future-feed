@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useInfiniteQuery } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
-import { CATEGORIES, getWorldNews, type NewsArticle } from "@/lib/news.functions";
+import { CATEGORIES, REFRESH_INTERVAL, getWorldNews, type NewsArticle } from "@/lib/news.functions";
 import { ThemeSwitcher } from "@/components/ThemeSwitcher";
 
 export const Route = createFileRoute("/")({
@@ -56,7 +56,7 @@ function Clocks() {
   return (
     <>
       <div className="text-right">
-        <div className="text-primary/50">UTC_TIME</div>
+        <div className="text-primary/70">UTC_TIME</div>
         <div className="text-lg font-bold tabular-nums">
           {now ? now.toISOString().slice(11, 19) : "--:--:--"}
         </div>
@@ -65,7 +65,7 @@ function Clocks() {
       <div className="hidden grid-cols-3 gap-x-4 gap-y-0.5 border-l border-primary/20 pl-4 text-[10px] lg:grid">
         {ZONES.map((z) => (
           <div key={z.label} className="flex items-baseline justify-between gap-2">
-            <span className="text-primary/50">{z.label}</span>
+            <span className="text-primary/70">{z.label}</span>
             <span className="font-bold tabular-nums">{now ? z.fmt.format(now) : "--:--"}</span>
           </div>
         ))}
@@ -85,10 +85,10 @@ function NewsTerminal() {
       initialPageParam: undefined as string | undefined,
       getNextPageParam: (last, _pages, lastParam) =>
         last.nextPage && last.nextPage !== lastParam ? last.nextPage : undefined,
-      refetchInterval: 3_600_000,
+      refetchInterval: REFRESH_INTERVAL,
       retry: (failureCount, error) => {
         const status =
-          error instanceof Response ? error.status : (error as { status?: number }).status;
+          error instanceof Response ? error.status : (error as { status?: number } | null)?.status;
         return status === 429 ? false : failureCount < 1;
       },
     });
@@ -132,7 +132,7 @@ function NewsTerminal() {
 
           <div className="flex shrink-0 items-center gap-4 font-mono text-xs md:gap-8">
             <div className="hidden text-right sm:block">
-              <div className="text-primary/50">SYNC_NODE</div>
+              <div className="text-primary/70">SYNC_NODE</div>
               <div className="text-primary">RELAY_NEWSDATA</div>
             </div>
             <Clocks />
@@ -147,7 +147,12 @@ function NewsTerminal() {
         </header>
 
         <div className="overflow-hidden whitespace-nowrap border-b border-primary/20 bg-primary/5 py-1.5">
-          <div className="inline-block animate-ticker text-[10px] font-bold uppercase tracking-[0.3em] text-primary/80">
+          <div
+            role="marquee"
+            tabIndex={0}
+            aria-label="Latest headlines ticker — focus to pause"
+            className="inline-block animate-ticker text-[10px] font-bold uppercase tracking-[0.3em] text-primary/80"
+          >
             {articles.length === 0
               ? ">> AWAITING UPLINK AUTHORISATION // GLOBAL RELAY STANDING BY >>"
               : `>> ${articles
@@ -162,6 +167,7 @@ function NewsTerminal() {
             <button
               key={c}
               onClick={() => setCategory(c)}
+              aria-pressed={category === c}
               className={`border px-4 py-1 text-xs font-bold uppercase tracking-tighter transition-colors ${
                 category === c
                   ? "border-primary bg-primary text-primary-foreground"
@@ -198,7 +204,7 @@ function NewsTerminal() {
         {feedError && feedError !== "NO_KEY" && feedError !== "QUOTA" && (
           <section className="m-4 border border-destructive/50 bg-card p-6">
             <h2 className="font-display text-2xl tracking-wide text-destructive">RELAY ERROR</h2>
-            <p className="mt-2 font-mono text-sm text-primary/60">{feedError}</p>
+            <p className="mt-2 font-mono text-sm text-primary/75">{feedError}</p>
           </section>
         )}
 
@@ -224,18 +230,18 @@ function NewsTerminal() {
                     src={lead.image}
                     alt={lead.title}
                     loading="lazy"
-
+                    referrerPolicy="no-referrer"
                     onError={(e) => e.currentTarget.classList.add("hidden")}
                     className="size-full object-cover opacity-60 grayscale transition-all duration-1000 group-hover:opacity-100 group-hover:grayscale-0"
                   />
                 ) : (
-                  <div className="flex size-full items-center justify-center bg-background font-mono text-xs text-primary/40">
+                  <div className="flex size-full items-center justify-center bg-background font-mono text-xs text-primary/70">
                     NO VISUAL FEED
                   </div>
                 )}
                 <div className="absolute inset-0 bg-gradient-to-t from-card via-card/40 to-transparent" />
                 <div className="pointer-events-none absolute inset-4 border border-primary/10" />
-                <div className="absolute left-6 top-6 font-mono text-[10px] text-primary/40">
+                <div className="absolute left-6 top-6 font-mono text-[10px] text-primary/70">
                   FRAME_ID: {lead.id.slice(0, 8).toUpperCase()}
                 </div>
 
@@ -244,7 +250,7 @@ function NewsTerminal() {
                     <span className="text-xs font-bold text-accent">
                       SOURCE: {lead.source.toUpperCase()}
                     </span>
-                    <span className="font-mono text-xs text-primary/60">
+                    <span className="font-mono text-xs text-primary/75">
                       CH: {lead.category.toUpperCase()}
                     </span>
                   </div>
@@ -257,7 +263,7 @@ function NewsTerminal() {
                     </p>
                   )}
                   <div className="flex flex-wrap items-center justify-between gap-3">
-                    <div className="flex items-center gap-4 font-mono text-[10px] text-primary/50">
+                    <div className="flex items-center gap-4 font-mono text-[10px] text-primary/70">
                       <span>GEO: {lead.country.toUpperCase()}</span>
                       {lead.publishedAt && <span>TIME: {lead.publishedAt.slice(0, 16)}</span>}
                     </div>
@@ -289,7 +295,7 @@ function NewsTerminal() {
                       src={a.image}
                       alt={a.title}
                       loading="lazy"
-
+                      referrerPolicy="no-referrer"
                       onError={(e) => e.currentTarget.classList.add("hidden")}
                       className="size-full object-cover opacity-50 grayscale transition-all group-hover:scale-105 group-hover:opacity-100 group-hover:grayscale-0"
                     />
@@ -303,7 +309,7 @@ function NewsTerminal() {
                       href={a.link}
                       target="_blank"
                       rel="noreferrer"
-                      className="border border-primary/30 px-2 py-0.5 font-mono text-[9px] uppercase text-primary/60 hover:text-accent"
+                      className="border border-primary/30 px-2 py-0.5 font-mono text-[9px] uppercase text-primary/75 hover:text-accent"
                     >
                       {a.source}
                     </a>
@@ -335,7 +341,7 @@ function NewsTerminal() {
                         <p className="line-clamp-2 text-xs text-accent/70">{a.description}</p>
                       )}
                     </div>
-                    <div className="shrink-0 text-right font-mono text-[9px] uppercase text-accent/40">
+                    <div className="shrink-0 text-right font-mono text-[9px] uppercase text-accent/70">
                       {a.source}
                       <br />
                       {a.publishedAt?.slice(11, 16) ?? "--:--"}
@@ -356,7 +362,7 @@ function NewsTerminal() {
                       src={a.image}
                       alt={a.title}
                       loading="lazy"
-
+                      referrerPolicy="no-referrer"
                       onError={(e) => e.currentTarget.classList.add("hidden")}
                       className="size-20 shrink-0 object-cover opacity-40 grayscale transition-all group-hover:opacity-100 group-hover:grayscale-0"
                     />
@@ -368,7 +374,7 @@ function NewsTerminal() {
                         {a.title}
                       </a>
                     </h3>
-                    <div className="font-mono text-[10px] uppercase text-primary/40">
+                    <div className="font-mono text-[10px] uppercase text-primary/70">
                       {a.source} // {a.country} // {a.publishedAt?.slice(0, 16) ?? "UNKNOWN"}
                     </div>
                   </div>
@@ -382,7 +388,7 @@ function NewsTerminal() {
                 className="flex flex-col justify-between border border-primary/20 bg-card p-4 hover:bg-primary/5"
               >
                 <div>
-                  <div className="mb-2 font-mono text-[10px] uppercase text-primary/60">
+                  <div className="mb-2 font-mono text-[10px] uppercase text-primary/75">
                     {a.category}_WATCH
                   </div>
                   <h3 className="mb-2 font-display text-xl uppercase leading-tight">
@@ -397,7 +403,7 @@ function NewsTerminal() {
                   )}
                 </div>
                 <div className="mt-4 flex justify-between border-t border-primary/10 pt-4 font-mono text-[9px] uppercase">
-                  <span className="text-primary/40">{a.source}</span>
+                  <span className="text-primary/70">{a.source}</span>
                   <span className="text-primary/80">{a.publishedAt?.slice(5, 16) ?? "--"}</span>
                 </div>
               </article>
@@ -408,7 +414,7 @@ function NewsTerminal() {
         {articles.length > 0 && (
           <div
             ref={sentinel}
-            className="border-t border-primary/10 p-6 text-center font-mono text-[10px] uppercase tracking-[0.3em] text-primary/50"
+            className="border-t border-primary/10 p-6 text-center font-mono text-[10px] uppercase tracking-[0.3em] text-primary/70"
           >
             {isFetchingNextPage
               ? "PULLING NEXT PACKET…"
@@ -420,14 +426,14 @@ function NewsTerminal() {
 
         <footer className="flex flex-wrap items-center justify-between gap-3 border-t border-primary/20 bg-card p-4 font-mono text-[9px]">
           <div className="flex items-center gap-4">
-            <span className="text-primary/40">ENCRYPTION: AES-256-GCM</span>
+            <span className="text-primary/75">TRANSPORT: TLS 1.3</span>
             <span className="border border-primary/20 bg-primary/5 px-2 py-0.5 text-primary/80">
               NODE: {isFetching ? "SYNCING" : "STABLE"}
             </span>
           </div>
           <div className="flex gap-6">
-            <span className="text-primary/40">RELAY: NEWSDATA.IO</span>
-            <span className="text-primary/40">AUTO_RESCAN: 120S</span>
+            <span className="text-primary/75">RELAY: NEWSDATA.IO</span>
+            <span className="text-primary/75">AUTO_RESCAN: {REFRESH_INTERVAL / 60_000}M</span>
             <span className="text-primary">SIGNALS: {articles.length}</span>
           </div>
         </footer>
