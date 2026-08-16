@@ -1,0 +1,14 @@
+node_modules
+dist
+.output
+.nitro
+.tanstack
+.vite
+.env
+.env.*
+!.env.example
+.DS_Store
+.claude/settings.local.json
+*.log
+package-lock.json
+.wrangler

@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" role="img" aria-label="SARENIT FEED">
+  <rect width="32" height="32" rx="6" fill="#04070f" />
+  <g stroke-width="4" stroke-linecap="round">
+    <line x1="13" y1="7" x2="8" y2="25" stroke="#00e5ff" />
+    <line x1="24" y1="7" x2="19" y2="25" stroke="#ff2d95" />
+  </g>
+</svg>
