@@ -4,9 +4,3 @@ updates:
     directory: /
     schedule:
       interval: monthly
-
-# The npm ecosystem is deliberately absent. Dependabot does not maintain
-# bun.lock, so every npm PR it opens changes package.json alone and fails
-# `bun install --frozen-lockfile` before any check can run. Dependency safety
-# is covered instead by `bun audit --audit-level=high` in CI, which fails the
-# build when a vulnerable version lands; routine upgrades are `bun update`.

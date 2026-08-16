@@ -13,15 +13,11 @@ LOG_RETENTION_DAYS=7
 
 cd "$(dirname "$0")/.."
 
-# CI deploys without the key so it never has to live in a GitHub secret; the
-# value already set on the function is left alone in that case.
 if [[ -z "${NEWSDATA_API_KEY:-}" && -f .env ]]; then
   set -a && . ./.env && set +a
 fi
 ENV_ARG=()
 if [[ -n "${NEWSDATA_API_KEY:-}" ]]; then
-  # Reaching this function means passing through CloudFront, which appends the
-  # caller to X-Forwarded-For, so the limiter can key on a real address.
   ENV_ARG=(--environment "Variables={NEWSDATA_API_KEY=$NEWSDATA_API_KEY,TRUST_PROXY_HEADERS=1}")
 fi
 
@@ -65,8 +61,6 @@ else
 fi
 aws lambda wait function-updated --function-name "$FUNCTION" --region "$REGION"
 
-# The function URL stays on AWS_IAM: this account cannot expose an anonymous
-# one, and CloudFront signs every origin request with SigV4 via OAC anyway.
 echo "==> function url"
 if ! aws lambda get-function-url-config --function-name "$FUNCTION" --region "$REGION" >/dev/null 2>&1; then
   aws lambda create-function-url-config --function-name "$FUNCTION" --region "$REGION" \
@@ -148,8 +142,6 @@ fi
 DIST_ARN=$(aws cloudfront get-distribution --id "$DIST" --query Distribution.ARN --output text)
 URL="https://$(aws cloudfront get-distribution --id "$DIST" --query Distribution.DomainName --output text)/"
 
-# A function URL needs both grants: one to reach the URL, one to invoke the
-# function behind it. With only the first, every request 403s.
 aws lambda remove-permission --function-name "$FUNCTION" --region "$REGION" \
   --statement-id AllowCloudFrontUrl 2>/dev/null || true
 aws lambda add-permission --function-name "$FUNCTION" --region "$REGION" \
