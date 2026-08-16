@@ -224,8 +224,30 @@ describe("clientKey", () => {
   it("ignores forwarding headers unless explicitly trusted", () => {
     assert.equal(clientKey(req({ "x-forwarded-for": "9.9.9.9" }), {}), SHARED_KEY);
     assert.equal(
-      clientKey(req({ "x-forwarded-for": "9.9.9.9, 1.1.1.1" }), { TRUST_PROXY_HEADERS: "1" }),
+      clientKey(req({ "x-forwarded-for": "9.9.9.9" }), { TRUST_PROXY_HEADERS: "1" }),
       "9.9.9.9",
     );
+  });
+
+  it("takes the entry the proxy appended, not the one the caller sent", () => {
+    assert.equal(
+      clientKey(req({ "x-forwarded-for": "1.2.3.4, 9.9.9.9" }), { TRUST_PROXY_HEADERS: "1" }),
+      "9.9.9.9",
+    );
+  });
+
+  it("cannot be tricked into a fresh bucket by padding the chain", () => {
+    const spoofed = ["evil-1", "evil-2", "evil-3"].map((pad) =>
+      clientKey(req({ "x-forwarded-for": `${pad}, 9.9.9.9` }), { TRUST_PROXY_HEADERS: "1" }),
+    );
+    assert.deepEqual(spoofed, ["9.9.9.9", "9.9.9.9", "9.9.9.9"]);
+  });
+
+  it("falls back to x-real-ip only when the chain is absent", () => {
+    assert.equal(
+      clientKey(req({ "x-real-ip": "9.9.9.9" }), { TRUST_PROXY_HEADERS: "1" }),
+      "9.9.9.9",
+    );
+    assert.equal(clientKey(req({ "x-real-ip": "9.9.9.9" }), {}), SHARED_KEY);
   });
 });
