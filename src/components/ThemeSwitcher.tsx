@@ -1,15 +1,31 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { DEFAULT_THEME, THEMES, THEME_STORAGE_KEY, type ThemeId } from "@/lib/themes";
 
+const listeners = new Set<() => void>();
+
+function subscribe(onChange: () => void) {
+  listeners.add(onChange);
+  window.addEventListener("storage", onChange);
+  return () => {
+    listeners.delete(onChange);
+    window.removeEventListener("storage", onChange);
+  };
+}
+
+function readTheme(): ThemeId {
+  const stored = localStorage.getItem(THEME_STORAGE_KEY) as ThemeId | null;
+  return stored && THEMES.some((t) => t.id === stored) ? stored : DEFAULT_THEME;
+}
+
+function storeTheme(id: ThemeId) {
+  localStorage.setItem(THEME_STORAGE_KEY, id);
+  for (const notify of listeners) notify();
+}
+
 export function ThemeSwitcher() {
-  const [theme, setTheme] = useState<ThemeId>(DEFAULT_THEME);
+  const theme = useSyncExternalStore(subscribe, readTheme, () => DEFAULT_THEME);
   const [open, setOpen] = useState(false);
   const root = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    const stored = localStorage.getItem(THEME_STORAGE_KEY) as ThemeId | null;
-    if (stored && THEMES.some((t) => t.id === stored)) setTheme(stored);
-  }, []);
 
   useEffect(() => {
     document.documentElement.setAttribute("data-theme", theme);
@@ -34,8 +50,7 @@ export function ThemeSwitcher() {
   const active = THEMES.find((t) => t.id === theme) ?? THEMES[0]!;
 
   const pick = (id: ThemeId) => {
-    setTheme(id);
-    localStorage.setItem(THEME_STORAGE_KEY, id);
+    storeTheme(id);
     setOpen(false);
   };
 
