@@ -40,14 +40,18 @@ chmod 600 .env
 
 In production, set `NEWSDATA_API_KEY` in your host's dashboard instead of shipping the file.
 
-| Variable              | Default                          | Purpose                                                                                                                                                                                  |
-| --------------------- | -------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `NEWSDATA_API_KEY`    | —                                | Required. Upstream credential, server-side only.                                                                                                                                         |
-| `PAGE_TOKEN_SECRET`   | falls back to `NEWSDATA_API_KEY` | HMAC key for pagination tokens. Set it to something separate so rotating the API key does not also invalidate every outstanding page token.                                              |
-| `TRUST_CF_IP`         | on                               | Rate-limit callers by `CF-Connecting-IP`. Correct on the Cloudflare Workers target, where the header cannot be reached around. Set `TRUST_CF_IP=0` if you serve this from anywhere else. |
-| `TRUST_PROXY_HEADERS` | off                              | Set to `1` only when a reverse proxy you control rewrites `X-Forwarded-For`. Anyone who can reach the origin directly can forge it.                                                      |
+| Variable              | Default                          | Purpose                                                                                                                                                                                                   |
+| --------------------- | -------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `NEWSDATA_API_KEY`    | —                                | Required. Upstream credential, server-side only.                                                                                                                                                          |
+| `PAGE_TOKEN_SECRET`   | falls back to `NEWSDATA_API_KEY` | HMAC key for pagination tokens. Set it to something separate so rotating the API key does not also invalidate every outstanding page token.                                                               |
+| `TRUST_CF_IP`         | on                               | Rate-limit callers by `CF-Connecting-IP`. Correct on the Cloudflare Workers target, where the header cannot be reached around. Set `TRUST_CF_IP=0` if you serve this from anywhere else.                  |
+| `TRUST_PROXY_HEADERS` | off                              | Set to `1` when a proxy you control is the only way to reach the origin. The limiter then keys on the last `X-Forwarded-For` entry, which is the one that proxy appended. Required on the AWS deployment. |
 
-With CF trust disabled and no proxy trust, every caller shares one bucket with a higher ceiling, so one noisy client can exhaust it for everyone.
+Only the last entry is trusted, never the first. A caller can send an `X-Forwarded-For` of their own and the proxy appends to it, so everything ahead of the final entry is attacker-supplied. Reading the front of the chain would let one client mint a fresh bucket per request and walk straight past the limiter.
+
+That is safe on the AWS target because the Lambda function URL requires `AWS_IAM` and its policy admits only the CloudFront distribution, so nothing can reach the origin without passing through the proxy that appends. Do not set this flag where the origin is directly reachable.
+
+With neither flag set, every caller shares one bucket with a higher ceiling, so one noisy client can exhaust it for everyone.
 
 ## Upstream budget
 

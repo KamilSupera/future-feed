@@ -20,7 +20,9 @@ if [[ -z "${NEWSDATA_API_KEY:-}" && -f .env ]]; then
 fi
 ENV_ARG=()
 if [[ -n "${NEWSDATA_API_KEY:-}" ]]; then
-  ENV_ARG=(--environment "Variables={NEWSDATA_API_KEY=$NEWSDATA_API_KEY}")
+  # Reaching this function means passing through CloudFront, which appends the
+  # caller to X-Forwarded-For, so the limiter can key on a real address.
+  ENV_ARG=(--environment "Variables={NEWSDATA_API_KEY=$NEWSDATA_API_KEY,TRUST_PROXY_HEADERS=1}")
 fi
 
 echo "==> build"
