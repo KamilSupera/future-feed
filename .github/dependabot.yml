@@ -1,26 +1,12 @@
 version: 2
 updates:
-  - package-ecosystem: npm
-    directory: /
-    schedule:
-      interval: weekly
-    open-pull-requests-limit: 5
-    # Majors stay out of the groups so a breaking bump arrives as its own PR
-    # instead of hiding among eight routine ones. Bun lockfiles are not
-    # maintained by this ecosystem, so every npm PR needs `bun install`
-    # and a bun.lock commit before it can go green.
-    groups:
-      tanstack:
-        patterns: ["@tanstack/*"]
-        update-types: ["minor", "patch"]
-      react:
-        patterns: ["react", "react-dom", "@types/react", "@types/react-dom"]
-        update-types: ["minor", "patch"]
-      dev:
-        dependency-type: development
-        update-types: ["minor", "patch"]
-
   - package-ecosystem: github-actions
     directory: /
     schedule:
       interval: monthly
+
+# The npm ecosystem is deliberately absent. Dependabot does not maintain
+# bun.lock, so every npm PR it opens changes package.json alone and fails
+# `bun install --frozen-lockfile` before any check can run. Dependency safety
+# is covered instead by `bun audit --audit-level=high` in CI, which fails the
+# build when a vulnerable version lands; routine upgrades are `bun update`.

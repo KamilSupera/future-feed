@@ -23,6 +23,10 @@ The dev server listens on port 8080.
 | `bun run test`      | Unit tests via the Node test runner (no test framework dependency) |
 | `bun run build`     | Production build for the Cloudflare Workers target                 |
 
+Dependencies are upgraded by hand with `bun update`, not by a bot. Dependabot watches the GitHub Actions used in the workflows, but not npm: it does not maintain `bun.lock`, so every npm PR it opened changed `package.json` alone and failed `bun install --frozen-lockfile` before a single check could run. What actually matters — a dependency turning out to be vulnerable — is caught by `bun audit --audit-level=high` in CI, which fails the build.
+
+One upgrade is pinned deliberately: `typescript` stays on 6.x because no published `typescript-eslint` supports TypeScript 7 yet, and ESLint refuses to start against it. Revisit once upstream ships support.
+
 Tests need Node 24 or newer, which runs TypeScript directly. They cover the parts that are easy to get quietly wrong: page-token signing, URL scheme handling, the daily upstream budget, cache expiry and eviction, and the rate limiter.
 
 ## Environment
