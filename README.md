@@ -61,11 +61,13 @@ newsdata.io's free tier allows 200 credits/day and delays articles by 12 hours. 
 
 ## Deploying to AWS
 
-`scripts/deploy-aws.sh` puts the app on Lambda behind CloudFront using the default AWS profile. It is idempotent — the first run creates everything, later runs only ship new code.
+`scripts/deploy-aws.sh` puts the app on Lambda behind CloudFront. It is idempotent — the first run creates everything, later runs only ship new code.
 
 ```sh
-./scripts/deploy-aws.sh
+AWS_PROFILE=sarenit-main ./scripts/deploy-aws.sh
 ```
+
+The script takes credentials from the usual AWS CLI resolution, so `AWS_PROFILE` picks the account and its region. Point it at an IAM user, never at root: root credentials cannot be scoped down or revoked separately from the account itself. `REGION` and `FUNCTION` override the defaults if you need a second environment.
 
 It builds with `NITRO_PRESET=aws-lambda`, zips `.output`, then creates (or reuses) an IAM role, an arm64 Lambda on `nodejs22.x`, a function URL, an Origin Access Control and a CloudFront distribution. `NEWSDATA_API_KEY` is read from the environment or `.env` and set as a Lambda environment variable. Log retention is capped at 7 days.
 
