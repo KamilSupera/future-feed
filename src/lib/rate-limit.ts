@@ -10,10 +10,6 @@ export function clientKey(request: Request, env: Record<string, string | undefin
     if (cfIp) return cfIp;
   }
 
-  // The proxy in front appends the caller to X-Forwarded-For, so the entry it
-  // added is the last one. Anything earlier came from the caller and is
-  // forgeable; reading the first entry would let one client mint unlimited
-  // identities and walk straight past the limiter.
   if (env["TRUST_PROXY_HEADERS"] === "1") {
     const chain = request.headers.get("x-forwarded-for")?.split(",") ?? [];
     const nearest = chain[chain.length - 1]?.trim();

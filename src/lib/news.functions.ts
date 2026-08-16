@@ -14,9 +14,6 @@ import {
 
 export { CATEGORIES, REFRESH_INTERVAL, type NewsArticle, type NewsFeed } from "./news.core";
 
-// ponytail: cache and budget live in isolate memory, so the cap is per isolate,
-// not global. `cf.cacheTtl` below collapses that to one upstream call per colo
-// per TTL. A hard global cap needs a KV or Durable Object binding.
 const cache = createCache();
 const budget = createBudget();
 

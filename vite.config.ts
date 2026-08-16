@@ -7,8 +7,6 @@ import { nitro } from "nitro/vite";
 
 export default defineConfig(({ command }) => ({
   server: { host: "::", port: 8080 },
-  // Inlined fonts arrive as data: URIs, which font-src 'self' rejects. Keeping
-  // every asset a real file is what lets the CSP stay strict.
   build: { assetsInlineLimit: 0 },
   resolve: {
     alias: { "@": `${process.cwd()}/src` },
