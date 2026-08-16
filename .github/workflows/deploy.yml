@@ -34,7 +34,7 @@ jobs:
 
       - run: bun install --frozen-lockfile
 
-      - uses: aws-actions/configure-aws-credentials@v4
+      - uses: aws-actions/configure-aws-credentials@v6
         with:
           role-to-assume: ${{ vars.AWS_DEPLOY_ROLE }}
           aws-region: eu-central-1
