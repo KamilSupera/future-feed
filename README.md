@@ -55,6 +55,34 @@ newsdata.io's free tier allows 200 credits/day and delays articles by 12 hours. 
 
 **Know the limit of that guarantee.** The cache and the counter live in Workers isolate memory, and no KV or Durable Object is bound. The 150/day cap therefore applies per isolate, not globally, and the edge cache is per colo — so worldwide traffic across many colos can still exceed the free tier. If that matters for your deployment, bind a KV namespace and move the counter into it. The limits live in `src/lib/news.core.ts`, `src/lib/news.functions.ts` and `src/lib/rate-limit.ts`.
 
+## Deploying to AWS
+
+`scripts/deploy-aws.sh` puts the app on Lambda behind CloudFront using the default AWS profile. It is idempotent — the first run creates everything, later runs only ship new code.
+
+```sh
+./scripts/deploy-aws.sh
+```
+
+It builds with `NITRO_PRESET=aws-lambda`, zips `.output`, then creates (or reuses) an IAM role, an arm64 Lambda on `nodejs22.x`, a function URL, an Origin Access Control and a CloudFront distribution. `NEWSDATA_API_KEY` is read from the environment or `.env` and set as a Lambda environment variable. Log retention is capped at 7 days.
+
+The function URL stays on `AWS_IAM` and is never public: CloudFront signs every origin request with SigV4 through OAC, so the distribution is the only way in. Two Lambda permissions are required for this to work — `lambda:InvokeFunctionUrl` to reach the URL and `lambda:InvokeFunction` to run the function behind it. With only the first, every request returns 403.
+
+CloudFront serves `/assets/*` from cache with a one-year immutable TTL, so the hashed bundles and fonts stop reaching Lambda after the first request. HTML and server-function calls are not cached.
+
+Everything sits inside perpetual free tiers: Lambda's 1M requests and 400k GB-seconds per month, CloudFront's 1 TB egress and 10M requests per month, and 7-day CloudWatch log retention. `PriceClass_100` keeps edge locations to North America and Europe.
+
+**Caveat specific to Lambda.** The `cf.cacheTtl` edge caching described above only exists on Cloudflare. On Lambda the feed cache and the daily counter live in a warm execution container, so a cold start begins with an empty cache and spends one upstream call. Sporadic traffic therefore costs more newsdata credits than steady traffic. The 150/day cap still protects the quota, but if this ever needs a real shared cache, DynamoDB or ElastiCache is the next step.
+
+To build for Cloudflare instead, leave `NITRO_PRESET` unset — `cloudflare-module` is still the default.
+
+### Deploying from CI
+
+`.github/workflows/deploy.yml` runs the same script on every push to `develop`, and on demand via _Actions → Deploy → Run workflow_. It authenticates with GitHub OIDC, so this repository holds no AWS keys — only a `AWS_DEPLOY_ROLE` variable naming the role to assume. The role can touch the `future-feed` function, its CloudFront distribution and its log group, and can pass exactly one execution role; it cannot create IAM roles, which keeps a compromised workflow from escalating.
+
+The workflow never receives `NEWSDATA_API_KEY`. The key is set once on the function — by the first local deploy, or by hand in the console — and CI leaves it in place. A first-time deploy into an empty account has to run locally, since only that path creates the Lambda execution role.
+
+After shipping, the job polls the CloudFront URL until it answers 200 and fails the run if it never does.
+
 ## Security posture
 
 - The API key never reaches the browser. All upstream calls happen in a server function.
